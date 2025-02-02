@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>notepad</title>
+</head>
+<style type="text/css">
+ol,ul{
+display:block;
+list-style-type:none;
+margin:3px;
+}
+</style><body>
+<div>&lt;!DOCTYPE html&gt;<br>
+&lt;html&gt;<br>
+&lt;head&gt;<br>
+&nbsp;&nbsp;&nbsp; &lt;title&gt;&#24494;&#20449;&#20420;&#32599;&#26031;&#26041;&#22359;&lt;/title&gt;<br>
+&nbsp;&nbsp;&nbsp; &lt;style&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; canvas {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; border: 2px solid #333;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; body {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; display: flex;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; justify-content: center;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; background-color: #f0f0f0;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp; &lt;/style&gt;<br>
+&lt;/head&gt;<br>
+&lt;body&gt;<br>
+&nbsp;&nbsp;&nbsp; &lt;div&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;canvas id="game" width="300" height="600"&gt;&lt;/canvas&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div&gt;&#24471;&#20998;: &lt;span id="score"&gt;0&lt;/span&gt;&lt;/div&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div&gt;&#19979;&#19968;&#20010;:&lt;/div&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;canvas id="next" width="100" height="100"&gt;&lt;/canvas&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div&gt;&#25805;&#20316;&#35828;&#26126;&#65306;&#8592;&#8594;&#31227;&#21160;&#65292;&#8593;&#26059;&#36716;&#65292;&#8595;&#21152;&#36895;&lt;/div&gt;<br>
+&nbsp;&nbsp;&nbsp; &lt;/div&gt;<br>
+<br>
+&lt;script&gt;<br>
+const canvas = document.getElementById('game');<br>
+const ctx = canvas.getContext('2d');<br>
+const nextCanvas = document.getElementById('next');<br>
+const nextCtx = nextCanvas.getContext('2d');<br>
+const BLOCK_SIZE = 30;<br>
+const SHAPES = [<br>
+&nbsp;&nbsp;&nbsp; [[1,1,1,1]], // I<br>
+&nbsp;&nbsp;&nbsp; [[1,1,1],[0,1,0]], // T<br>
+&nbsp;&nbsp;&nbsp; [[1,1,1],[1,0,0]], // L<br>
+&nbsp;&nbsp;&nbsp; [[1,1,1],[0,0,1]], // J<br>
+&nbsp;&nbsp;&nbsp; [[1,1],[1,1]], // O<br>
+&nbsp;&nbsp;&nbsp; [[1,1,0],[0,1,1]], // S<br>
+&nbsp;&nbsp;&nbsp; [[0,1,1],[1,1,0]]&nbsp; // Z<br>
+];<br>
+const COLORS = ['#00f0f0', '#f0a000', '#0000f0', '#f0f000', '#a0a0a0', '#00f000', '#f00000'];<br>
+<br>
+let current = null;<br>
+let next = null;<br>
+let board = Array(20).fill().map(() =&gt; Array(10).fill(0));<br>
+let score = 0;<br>
+let lastTime = 0;<br>
+let dropInterval = 1000;<br>
+<br>
+class Block {<br>
+&nbsp;&nbsp;&nbsp; constructor(shapeIndex) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; this.shape = SHAPES[shapeIndex];<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; this.color = COLORS[shapeIndex];<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; this.x = 4;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; this.y = 0;<br>
+&nbsp;&nbsp;&nbsp; }<br>
+}<br>
+<br>
+function createNewBlock() {<br>
+&nbsp;&nbsp;&nbsp; current = next || new Block(Math.floor(Math.random()*7));<br>
+&nbsp;&nbsp;&nbsp; next = new Block(Math.floor(Math.random()*7));<br>
+&nbsp;&nbsp;&nbsp; drawNext();<br>
+}<br>
+<br>
+function drawBlock(block, ctx) {<br>
+&nbsp;&nbsp;&nbsp; block.shape.forEach((row, y) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; row.forEach((value, x) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(value) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ctx.fillStyle = block.color;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ctx.fillRect((block.x+x)*BLOCK_SIZE, (block.y+y)*BLOCK_SIZE, BLOCK_SIZE-1, BLOCK_SIZE-1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; });<br>
+&nbsp;&nbsp;&nbsp; });<br>
+}<br>
+<br>
+function drawNext() {<br>
+&nbsp;&nbsp;&nbsp; nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);<br>
+&nbsp;&nbsp;&nbsp; nextCtx.save();<br>
+&nbsp;&nbsp;&nbsp; nextCtx.translate(1, 1);<br>
+&nbsp;&nbsp;&nbsp; drawBlock(next, nextCtx);<br>
+&nbsp;&nbsp;&nbsp; nextCtx.restore();<br>
+}<br>
+<br>
+function draw() {<br>
+&nbsp;&nbsp;&nbsp; ctx.clearRect(0, 0, canvas.width, canvas.height);<br>
+&nbsp;&nbsp;&nbsp; board.forEach((row, y) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; row.forEach((value, x) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(value) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ctx.fillStyle = COLORS[value-1];<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ctx.fillRect(x*BLOCK_SIZE, y*BLOCK_SIZE, BLOCK_SIZE-1, BLOCK_SIZE-1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; });<br>
+&nbsp;&nbsp;&nbsp; });<br>
+&nbsp;&nbsp;&nbsp; drawBlock(current, ctx);<br>
+}<br>
+<br>
+function isValidMove(block, moveX, moveY) {<br>
+&nbsp;&nbsp;&nbsp; return block.shape.every((row, dy) =&gt; <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; row.every((value, dx) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; let newX = block.x + dx + moveX;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; let newY = block.y + dy + moveY;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return value === 0 || <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (newX &gt;= 0 &amp;&amp; newX &lt; 10 &amp;&amp; <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; newY &lt; 20 &amp;&amp; <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; !board[newY]?.[newX]);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; })<br>
+&nbsp;&nbsp;&nbsp; );<br>
+}<br>
+<br>
+function rotate(block) {<br>
+&nbsp;&nbsp;&nbsp; const rotated = block.shape[0].map((_, i) =&gt; <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; block.shape.map(row =&gt; row[i]).reverse()<br>
+&nbsp;&nbsp;&nbsp; );<br>
+&nbsp;&nbsp;&nbsp; const originalShape = block.shape;<br>
+&nbsp;&nbsp;&nbsp; block.shape = rotated;<br>
+&nbsp;&nbsp;&nbsp; if(!isValidMove(block, 0, 0)) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; block.shape = originalShape;<br>
+&nbsp;&nbsp;&nbsp; }<br>
+}<br>
+<br>
+function merge() {<br>
+&nbsp;&nbsp;&nbsp; current.shape.forEach((row, y) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; row.forEach((value, x) =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(value) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; board[current.y + y][current.x + x] = COLORS.indexOf(current.color)+1;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; });<br>
+&nbsp;&nbsp;&nbsp; });<br>
+}<br>
+<br>
+function clearLines() {<br>
+&nbsp;&nbsp;&nbsp; let linesCleared = 0;<br>
+&nbsp;&nbsp;&nbsp; for(let y = board.length-1; y &gt;= 0; y--) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(board[y].every(cell =&gt; cell)) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; board.splice(y, 1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; board.unshift(Array(10).fill(0));<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; linesCleared++;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; y++;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp; if(linesCleared) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; score += [0, 100, 300, 500, 800][linesCleared];<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; document.getElementById('score').textContent = score;<br>
+&nbsp;&nbsp;&nbsp; }<br>
+}<br>
+<br>
+function update(time = 0) {<br>
+&nbsp;&nbsp;&nbsp; const deltaTime = time - lastTime;<br>
+&nbsp;&nbsp;&nbsp; lastTime = time;<br>
+<br>
+&nbsp;&nbsp;&nbsp; if(deltaTime &gt; dropInterval) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(isValidMove(current, 0, 1)) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; current.y++;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; } else {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; merge();<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; clearLines();<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; createNewBlock();<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(!isValidMove(current, 0, 0)) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; alert('&#28216;&#25103;&#32467;&#26463;! &#24471;&#20998;: ' + score);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; resetGame();<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lastTime = time;<br>
+&nbsp;&nbsp;&nbsp; }<br>
+<br>
+&nbsp;&nbsp;&nbsp; draw();<br>
+&nbsp;&nbsp;&nbsp; requestAnimationFrame(update);<br>
+}<br>
+<br>
+function resetGame() {<br>
+&nbsp;&nbsp;&nbsp; board = Array(20).fill().map(() =&gt; Array(10).fill(0));<br>
+&nbsp;&nbsp;&nbsp; score = 0;<br>
+&nbsp;&nbsp;&nbsp; document.getElementById('score').textContent = 0;<br>
+&nbsp;&nbsp;&nbsp; createNewBlock();<br>
+}<br>
+<br>
+document.addEventListener('keydown', event =&gt; {<br>
+&nbsp;&nbsp;&nbsp; switch(event.keyCode) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; case 37: // &#8592;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(isValidMove(current, -1, 0)) current.x--;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; case 39: // &#8594;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(isValidMove(current, 1, 0)) current.x++;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; case 40: // &#8595;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(isValidMove(current, 0, 1)) current.y++;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; case 38: // &#8593;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rotate(current);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<br>
+&nbsp;&nbsp;&nbsp; }<br>
+});<br>
+<br>
+// &#21021;&#22987;&#21270;&#28216;&#25103;<br>
+resetGame();<br>
+update();<br>
+&lt;/script&gt;<br>
+&lt;/body&gt;<br>
+&lt;/html&gt;</div>
+</body>
+</html>
